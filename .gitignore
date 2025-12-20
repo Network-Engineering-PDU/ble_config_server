@@ -1,0 +1,4 @@
+__pycache__/
+ble_config_server.egg-info/
+scripts/qr_code
+build/
