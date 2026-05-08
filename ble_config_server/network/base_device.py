@@ -32,6 +32,7 @@ class BaseDevice(NetworkConfig):
                 self.mask = str(IPv4Interface(match.group(1)).netmask)
                 self.ip = match.group(2)
 
+                # Check interfaces in order, prioritizing eth0 then eth1
                 for iface in NetworkType.get_interfaces():
                     retval, output = \
                             await utils.shell(f"ip address show dev {iface}")
@@ -39,6 +40,10 @@ class BaseDevice(NetworkConfig):
                         match = re.search("inet ([\d\.]+)", output)
                         if match is not None and self.ip == match.group(1):
                             self.type = NetworkType.from_interface(iface)
+                            # Store which ethernet interface is active
+                            if iface in ["eth0", "eth1"]:
+                                self.active_eth_iface = iface
+                            return
 
     async def get_wifi_ssid(self):
         pass

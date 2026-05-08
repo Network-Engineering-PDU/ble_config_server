@@ -14,6 +14,10 @@ class Heimdall(BaseDevice):
 
     WIFI_CONN = "ble-wifi-conn"
     ETH_CONN = "ble-eth-conn"
+    
+    def __init__(self):
+        super().__init__()
+        self.active_eth_iface = "eth0"  # Track which ethernet interface is active
 
     async def _get_ip_from_if(self, iface):
         _, output = await utils.shell(f"nmcli -t d show {iface}")
@@ -53,14 +57,17 @@ class Heimdall(BaseDevice):
                 await self._get_ip_from_if(iface)
                 return
 
-        # In other cases the connection is dhcp
+        # In other cases the connection is dhcp - check both eth0 and eth1
         self.type = NetworkType.ETH_DHCP
-        iface = NetworkType.to_interface(self.type)
-        retval, output = await utils.shell(
-            f"nmcli -t -f GENERAL.STATE d show {iface}")
-        if "connected" in output:
-            await self._get_ip_from_if(iface)
-            return
+        
+        # Try eth0 first, then eth1
+        for eth_iface in ["eth0", "eth1"]:
+            retval, output = await utils.shell(
+                f"nmcli -t -f GENERAL.STATE d show {eth_iface}")
+            if "connected" in output:
+                self.active_eth_iface = eth_iface
+                await self._get_ip_from_if(eth_iface)
+                return
 
     async def get_wifi_ssid(self):
         retval, output = await utils.shell(
@@ -89,12 +96,17 @@ class Heimdall(BaseDevice):
         await utils.shell(f"nmcli con del {self.ETH_CONN}")
 
         if self.is_static():
-            iface = NetworkType.to_interface(self.type)
             iface_ip = ipaddress.IPv4Interface(f"{self.ip}/{self.mask}")
+            # Create connection for both eth0 and eth1 as wildcard
             await utils.shell("nmcli connection add type " + \
-                f"ethernet con-name ble-eth-conn ifname {iface} ip4 " + \
+                f"ethernet con-name ble-eth-conn ifname '*' ip4 " + \
                 f"{str(iface_ip)} gw4 {self.gateway} ipv4.dns " + \
                 f"'{self.dns1},{self.dns2}'")
+            await utils.shell(f"nmcli con up {self.ETH_CONN}")
+        else:
+            # DHCP - create connection for both eth0 and eth1 as wildcard
+            await utils.shell("nmcli connection add type " + \
+                f"ethernet con-name ble-eth-conn ifname '*' ipv4.method auto")
             await utils.shell(f"nmcli con up {self.ETH_CONN}")
 
     async def save(self):

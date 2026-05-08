@@ -11,6 +11,7 @@ class NetworkConfig:
         self.type = None
         self.ssid = None
         self.psk = None
+        self.active_eth_iface = "eth0"  # Track which ethernet interface is active
         self.reset()
 
     def reset(self):

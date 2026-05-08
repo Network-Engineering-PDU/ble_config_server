@@ -7,7 +7,7 @@ class NetworkType:
 
     @classmethod
     def get_interfaces(cls):
-        return ["wwan0", "ppp0", "wlan0", "eth0"]
+        return ["wwan0", "ppp0", "wlan0", "eth0", "eth1"]
 
     @classmethod
     def from_interface(cls, interface):
@@ -15,7 +15,7 @@ class NetworkType:
             return cls.LTE_4G
         if interface == "wlan0":
             return cls.WIFI
-        if interface == "eth0":
+        if interface == "eth0" or interface == "eth1":
             return cls.ETH_DHCP
         return cls.UNCONF
 
