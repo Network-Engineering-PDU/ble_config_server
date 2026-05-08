@@ -1,3 +1,6 @@
+import os
+
+
 class NetworkType:
     UNCONF     = 1
     ETH_DHCP   = 2
@@ -34,6 +37,23 @@ class NetworkType:
     @classmethod
     def to_interface(cls, network_type):
         if network_type == cls.ETH_DHCP or network_type == cls.ETH_STATIC:
+            # Prefer the ethernet interface that reports carrier in sysfs.
+            # This lets the runtime pick eth0 or eth1 depending on which
+            # physical port is connected.
+            for ifname in ("eth0", "eth1"):
+                carrier_path = f"/sys/class/net/{ifname}/carrier"
+                try:
+                    with open(carrier_path, "r") as f:
+                        if f.read().strip() == "1":
+                            return ifname
+                except Exception:
+                    # file may not exist on some platforms, ignore
+                    continue
+            # If no carrier-detect file or none report carrier, prefer
+            # an interface that exists, falling back to eth0.
+            for ifname in ("eth0", "eth1"):
+                if os.path.exists(f"/sys/class/net/{ifname}"):
+                    return ifname
             return "eth0"
         if network_type == cls.WIFI:
             return "wlan0"

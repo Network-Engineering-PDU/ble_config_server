@@ -57,10 +57,12 @@ class Raspberry(BaseDevice):
     async def get_static(self):
         try:
             config = await utils.async_read(self.RASP_CONFIG_FILE)
-            index = config.find("interface eth0")
-            if index != -1 and config[index-1] != "#":
-                self.type = NetworkType.get_static(self.type)
-                return
+            # Detect any un-commented "interface ethX" entry (eth0 or eth1)
+            for ifname in ("eth0", "eth1"):
+                idx = config.find(f"interface {ifname}")
+                if idx != -1 and config[idx-1] != "#":
+                    self.type = NetworkType.get_static(self.type)
+                    return
         except FileNotFoundError:
             pass
 
@@ -83,7 +85,9 @@ class Raspberry(BaseDevice):
         # New config
         if self.is_static():
             ip_and_mask = str(IPv4Interface(f"{self.ip}/{self.mask}"))
-            config += "interface eth0\n"
+            # Use the detected active ethernet interface (eth0 or eth1)
+            iface = getattr(self, "active_eth_iface", None) or NetworkType.to_interface(self.type)
+            config += f"interface {iface}\n"
             config += f"\tstatic ip_address={ip_and_mask}\n"
             config += f"\tstatic routers={self.gateway}\n"
             config += f"\tstatic domain_name_servers={self.dns1} {self.dns2}\n"
@@ -95,9 +99,11 @@ class Raspberry(BaseDevice):
                 await self.set_ethernet()
             elif self.is_wifi():
                 await self.set_wifi()
-
-            await utils.shell("sudo -n ip link set eth0 down")
-            await utils.shell("sudo -n ip link set wlan0 down")
-            iface = NetworkType.to_interface(self.type)
+            # Bring down both physical ethernet interfaces and wlan,
+            # then bring up the interface we intend to use.
+            await utils.shell("sudo -n ip link set eth0 down || true")
+            await utils.shell("sudo -n ip link set eth1 down || true")
+            await utils.shell("sudo -n ip link set wlan0 down || true")
+            iface = getattr(self, "active_eth_iface", None) or NetworkType.to_interface(self.type)
             await utils.shell(f"sudo -n ip link set {iface} up")
             logger.info("Network configuration saved")
