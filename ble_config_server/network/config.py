@@ -11,16 +11,16 @@ class NetworkConfig:
         self.type = None
         self.ssid = None
         self.psk = None
-        self.active_eth_iface = "eth0"  # Track which ethernet interface is active
+        self.active_eth_iface = "eth1"  # Track which ethernet interface is active
         self.reset()
 
     def reset(self):
-        self.ip = "192.168.0.1"
+        self.ip = "192.168.1.100"
         self.mask = "255.255.255.0"
-        self.gateway = "192.168.0.1"
+        self.gateway = "192.168.1.1"
         self.dns1 = "8.8.8.8"
         self.dns2 = "8.8.4.4"
-        self.type = NetworkType.UNCONF
+        self.type = NetworkType.ETH_STATIC
         self.ssid = ""
         self.psk = ""
 
